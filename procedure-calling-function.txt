@@ -1,0 +1,51 @@
+>>>>>>>>>>>>>>>> sending and getting response-
+
+var formData = $("#form_id").serialize();
+
+$.ajax({  
+	type: 'post',
+	url: base_url + 'physician/physician_post',
+	contentType: false, 
+	processData: false, 
+	data : formData,
+	success: function (data) {
+		
+		
+		var jsonstr = JSON.stringify(data); 
+		var JSONObject = JSON.parse(jsonstr);
+		var obj = JSON.parse(JSONObject);
+		if (data[0]["flag"] == 2) {
+			var msg = '<div class="alert alert-danger text-center my-alert ">' + obj[0]["msg"] + '<div>';
+			$(msg).insertBefore('#alert-box').delay(1000).fadeOut();
+		} else {
+			var msg = '<div class="alert alert-success text-center my-alert ">' + obj[0]["msg"] + '<div>';
+			$(msg).insertBefore('#alert-box').delay(5000).fadeOut(400, function () {
+				window.location.href = base_url + "physician_organization"; 
+		});
+
+		} 
+	}
+});
+
+
+>>>>>>>>>>>>>>>controller function
+
+public function controller_function()
+	{
+	        $data = $this->input->post();
+		    $user = $this->Adminmod->user_insert($data);
+		    echo json_encode($user); 
+	}
+
+>>>>>>>>>>>>>>>>>>model function procedure caliing
+
+public function model_function($data){ 
+        $value = json_encode($data);
+		$escapers = array("\\", "/", "\"", "\n", "\r", "\t", "\x08", "\x0c");
+		$replacements = array("\\\\", "\\/", "\\\"", "\\n", "\\r", "\\t", "\\f", "\\b");
+		$result = str_replace($escapers, $replacements, $value); 
+
+		$query = $this->db->query("call procedure_name('".json_encode($result)."')");
+		return $query->result();  
+		 
+	}

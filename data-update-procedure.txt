@@ -1,0 +1,31 @@
+CREATE DEFINER=`USER_NAME`@`%` PROCEDURE `UpdateProcedure` (IN `p_data` JSON)
+BEGIN
+
+DECLARE v_User_ID int(11);
+DECLARE v_Login_Name varchar(20);
+DECLARE v_Full_Name varchar(100);
+
+
+
+SET v_User_ID			= JSON_UNQUOTE(JSON_EXTRACT(p_data,'$.User_ID'));
+SET v_Login_Name		= JSON_UNQUOTE(JSON_EXTRACT(p_data,'$.Login_Name'));
+SET v_Full_Name			= JSON_UNQUOTE(JSON_EXTRACT(p_data,'$.Full_Name'));
+
+
+		IF exists(select 1 from user_master where Login_Name=v_Login_Name and User_ID <> v_User_ID ) THEN
+
+		select 2 as flag,'User Name is already exist' as msg;
+
+		ELSE
+
+		START TRANSACTION;
+		SET SQL_SAFE_UPDATES = 0;
+
+		UPDATE user_master  SET Login_Name = v_Login_Name,Full_Name =  v_Full_Name,WHERE User_ID = v_User_ID;
+
+        SELECT 1 as flag, 'User updated successfully' as msg;  
+
+COMMIT;
+END IF;
+
+END

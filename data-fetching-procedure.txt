@@ -1,0 +1,12 @@
+
+CREATE DEFINER=`USER_NAME`@`%` PROCEDURE `FetchProcedure`(
+)
+BEGIN 
+SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED ;
+
+select Country_ID,Country_Name from country_master where Active=1 
+order by Country_Name asc
+;
+
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ ;
+END

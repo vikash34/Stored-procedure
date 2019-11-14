@@ -1,0 +1,20 @@
+CREATE DEFINER=`USER_NAME`@`%` PROCEDURE `InsertProcedure`(IN `p_data` JSON)
+BEGIN
+
+DECLARE v_add_folder_name               VARCHAR(50) ;
+DECLARE v_status                          INT(4);
+       
+SET v_add_folder_name  = JSON_UNQUOTE(JSON_EXTRACT(p_data,'$.folder_name'));
+SET v_status  = 1;
+
+
+ START TRANSACTION; 
+
+	        INSERT INTO folder_master (folder_name,status) value (v_add_folder_name,v_status);
+
+	         SELECT 1 as flag , 'Folder added successfully'	as msg , LAST_INSERT_ID() as insert_id;
+
+	     COMMIT;
+
+
+END

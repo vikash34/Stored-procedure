@@ -1,0 +1,12 @@
+CREATE DEFINER=`USER_NAME`@`%` PROCEDURE `DeleteProcedure`(IN `p_data` JSON)
+BEGIN
+DECLARE v_co_id int(11);
+
+
+   SET v_co_id     =      JSON_UNQUOTE(JSON_EXTRACT(p_data,'$.co_id'));
+
+   DELETE  FROM folder_master where folder_id = v_co_id;
+
+   SELECT 1 as flag, 'Folder deleted successfully' as msg;
+
+END
