@@ -1,4 +1,4 @@
-CREATE DEFINER=`ordergenieuat`@`%` PROCEDURE `getZoneWiseChartData`(in _CompanyID INT,IN param TEXT,IN _Years INT,IN _UserID INT)
+CREATE DEFINER=`user_name`@`%` PROCEDURE `getZoneWiseChartData`(in _CompanyID INT,IN param TEXT,IN _Years INT,IN _UserID INT)
 BEGIN
 
 SELECT DISTINCT
