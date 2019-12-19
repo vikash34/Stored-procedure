@@ -1,0 +1,81 @@
+CREATE DEFINER=`user_name` PROCEDURE `procedure_name`(in _CompanyID INT,IN _Month INT,IN _Years INT,IN _UserID INT)
+BEGIN 
+
+declare TY_START_DATE DATE ;
+declare TY_END_DATE DATE ;
+declare LY_START_DATE DATE ;
+declare LY_END_DATE DATE ;
+declare month_no int(2) ;
+declare Get_year int(4) ;
+declare Prev_year int(4) ;
+declare Cur_Year int(4) ;
+
+declare M1 int(2) ;
+declare M2 int(2) ;
+declare M3 int(2) ;
+
+
+SET @M1= _Month-2;
+SET @M2= _Month-1;
+SET @M3= _Month;
+
+
+SET @month_no= _Month;
+SET @Get_year= _Years;
+SET @Prev_year= _Years-1;
+
+SELECT Tran_Date into @TY_END_DATE  FROM  ZSecondarySales  ORDER BY `_id` DESC LIMIT 1;
+SELECT year(Tran_Date)  into @Cur_Year   FROM  ZSecondarySales  ORDER BY `_id` DESC LIMIT 1;
+
+SET @TY_START_DATE =CONCAT(@Cur_Year,'-01-01');
+SET @LY_START_DATE =CONCAT(@Cur_Year-1,'-01-01');
+SET @LY_END_DATE=DATE_SUB(@TY_END_DATE,INTERVAL 1 YEAR);
+
+
+drop temporary Table IF EXISTS T1;
+drop temporary Table IF EXISTS T2;
+drop temporary Table IF EXISTS T3;
+drop temporary Table IF EXISTS T4;
+drop temporary Table IF EXISTS T5;
+drop temporary Table IF EXISTS T6;
+drop temporary Table IF EXISTS T7;
+drop temporary Table IF EXISTS T8;
+
+
+Create temporary Table T1
+SELECT distinct divison_id,round(AVG(m3_ly)) as m3_ly from (select divison_id,COUNT(distinct CompanyProduct_ID) as m3_ly from ZSecondarySales where month(Tran_Date)=@M3 AND YEAR(Tran_Date)=@Prev_year AND  ZCode IS NOT NULL group by Client_ID,divison_id) temp_table group by divison_id;
+
+Create temporary Table T2
+SELECT distinct divison_id,round(AVG(m3_ty)) as m3_ty from (select divison_id,COUNT(distinct CompanyProduct_ID) as m3_ty from ZSecondarySales where month(Tran_Date)=@M3 AND YEAR(Tran_Date)=@Get_year AND  ZCode IS NOT NULL group by Client_ID,divison_id) temp_table group by divison_id;
+
+Create temporary Table T3
+SELECT distinct divison_id,round(AVG(m2_ly)) as m2_ly from (select divison_id,COUNT(distinct CompanyProduct_ID) as m2_ly from ZSecondarySales where month(Tran_Date)=@M2 AND YEAR(Tran_Date)=@Prev_year AND  ZCode IS NOT NULL group by Client_ID,divison_id) temp_table group by divison_id;
+
+Create temporary Table T4
+SELECT distinct divison_id,round(AVG(m2_ty)) as m2_ty from (select divison_id,COUNT(distinct CompanyProduct_ID) as m2_ty from ZSecondarySales where month(Tran_Date)=@M2 AND YEAR(Tran_Date)=@Get_year AND  ZCode IS NOT NULL group by Client_ID,divison_id) temp_table group by divison_id;
+
+Create temporary Table T5
+SELECT distinct divison_id,round(AVG(m1_ly)) as m1_ly from (select divison_id,COUNT(distinct CompanyProduct_ID) as m1_ly from ZSecondarySales where month(Tran_Date)=@M1 AND YEAR(Tran_Date)=@Prev_year AND  ZCode IS NOT NULL group by Client_ID,divison_id) temp_table group by divison_id;
+
+Create temporary Table T6
+SELECT distinct divison_id,round(AVG(m1_ty)) as m1_ty from (select divison_id,COUNT(distinct CompanyProduct_ID) as m1_ty from ZSecondarySales where month(Tran_Date)=@M1 AND YEAR(Tran_Date)=@Get_year AND  ZCode IS NOT NULL group by Client_ID,divison_id) temp_table group by divison_id;
+
+Create temporary Table T7
+SELECT distinct divison_id,round(AVG(ytd_ly)) as ytd_ly from (select divison_id,COUNT(distinct CompanyProduct_ID) as ytd_ly from ZSecondarySales where Tran_Date >= @LY_START_DATE AND Tran_Date <= @LY_END_DATE AND  ZCode IS NOT NULL group by Client_ID,divison_id) temp_table group by divison_id;
+
+Create temporary Table T8
+SELECT distinct divison_id,round(AVG(ytd_ty)) as ytd_ty from (select divison_id,COUNT(distinct CompanyProduct_ID) as ytd_ty from ZSecondarySales where Tran_Date >=@TY_START_DATE AND Tran_Date <=@TY_END_DATE AND  ZCode IS NOT NULL group by Client_ID,divison_id) temp_table group by divison_id;
+
+select div_master.DivisionName,T1.m3_ly,T2.m3_ty,T3.m2_ly,T4.m2_ty,T5.m1_ly,T6.m1_ty,T7.ytd_ly,T8.ytd_ty from T1 left join T2 on(T1.divison_id=T2.divison_id) left join T3 on(T1.divison_id=T3.divison_id) left join T4 on(T1.divison_id=T4.divison_id) left join T5 on(T1.divison_id=T5.divison_id) left join T6 on(T1.divison_id=T6.divison_id) left join T7 on(T1.divison_id=T7.divison_id) left join T8 on(T1.divison_id=T8.divison_id) join Divisions as div_master on(T1.divison_id=div_master.DivisionID);
+
+drop temporary Table IF EXISTS T1;
+drop temporary Table IF EXISTS T2;
+drop temporary Table IF EXISTS T3;
+drop temporary Table IF EXISTS T4;
+drop temporary Table IF EXISTS T5;
+drop temporary Table IF EXISTS T6;
+drop temporary Table IF EXISTS T7;
+drop temporary Table IF EXISTS T8;
+
+
+END
