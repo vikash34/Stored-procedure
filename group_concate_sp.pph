@@ -1,0 +1,210 @@
+CREATE DEFINER=`user_name` PROCEDURE `sp_name`(IN _Year int , IN _brandID int,IN _UserID INT)
+BEGIN
+    
+set @ID =0;
+drop temporary Table IF EXISTS T1;
+drop temporary Table IF EXISTS T2;
+drop temporary Table IF EXISTS T3;
+drop temporary Table IF EXISTS T4;
+drop temporary Table IF EXISTS T5;
+drop temporary Table IF EXISTS T6;
+
+drop temporary table IF EXISTS ZSecondarySales1;
+
+Create temporary Table T6
+Select ClientID from 
+(
+Select a.ClientID from ClientMasters a inner join ClientTypes b
+on a.ClientTypeID = b.ClientTypeID
+ where a.ClientID   =_UserID and b.LevelID = (Select Min(LevelID) from ClientTypes)
+union all
+	Select a.ClientID from UserMasters a where a.ClientID =_UserID and a.ClientID = 327
+) a;
+
+
+call Child_list(_UserID);
+
+Create temporary Table T1
+Select ClientID,DivisionID,1 ID from UserDivisionMapping where ClientID =_UserID
+union
+Select * from ChildID;
+drop table if Exists ChildID;
+/*
+Select b.ClientID ,c.DivisionID ,2 ID from
+(
+ select  ClientID ,@ID
+ from    (select *,@ID := @ID +1 from UserParentMapping
+    order by ParentClientID, ClientID) products_sorted,
+   (select @pv := _UserID) initialisation
+ where   find_in_set(ParentClientID, @pv)
+ and     length(@pv := concat(@pv, ',', ClientID))
+ #and ParentClientID < ClientID
+) a inner join UserMasters b on a.ClientID = b.ClientID
+inner join UserDivisionMapping c on a.ClientID = c.ClientID
+where b.role ='MR';
+*/
+
+Create temporary Table T3 Select * from T1;
+
+Create temporary Table T4
+Select a.Stockiest_Client_ID,a.DivisionID 
+from
+(
+	Select Distinct c.Stockiest_Client_ID,  a.DivisionID from T1 a 
+			inner join Stockiest_ASM_Mapping c on a.ClientID = c.ASMID where ID =1 
+union all            
+	Select Distinct c.Stockiest_Client_ID,  a.DivisionID from T3 a inner join Stockiest_ASM_Mapping c on a.ClientID = c.ASMID where ID =2 
+) a;
+
+if (Select Count(*) from T6) > 0 then
+	Create temporary Table ZSecondarySales1 (Index `idx_stk_code1` (`Stockist_Code`), index `idx_Product_Code1` (`Product_Code`), index `idx_Tran_Date1` (`Tran_Date`))
+	Select * from ZSecondarySales;
+    
+else
+	Create temporary Table ZSecondarySales1 (Index `idx_stk_code1` (`Stockist_Code`), index `idx_Product_Code1` (`Product_Code`), index `idx_Tran_Date1` (`Tran_Date`))
+	Select a.* from ZSecondarySales a inner join T4 b on a.Client_ID =b.Stockiest_Client_ID and a.divison_id =b.DivisionID;
+end if;
+
+
+SELECT DISTINCT
+    (CASE
+        WHEN caluate_report = 1 THEN 'mrp'
+        WHEN caluate_report = 2 THEN 'ptr'
+        WHEN caluate_report = 3 THEN 'pts'
+        ELSE 'mrp'
+    END)
+INTO @v_col1 FROM
+    UserMasters U
+WHERE
+    U.ClientID = 327
+LIMIT 1;
+
+if _brandID > 0 then
+
+
+	drop temporary table if exists monthwiseSale;
+	create temporary table monthwiseSale
+	select month.* , ifnull(saleData.sale,0) as sale from month left join(
+	select  month(tran_Date) as m ,  
+	 #CASE           WHEN @v_col1 = 'mrp' THEN ifnull(SUM(IFNULL(SECONDARY_SALES, 0) * IFNULL(cp.mrp, 0)),0)
+	#				WHEN @v_col1 = 'ptr' THEN ifnull(SUM(IFNULL(SECONDARY_SALES, 0) * IFNULL(cp.ptr, 0)),0)
+	#				WHEN @v_col1 = 'pts' THEN ifnull(SUM(IFNULL(SECONDARY_SALES, 0) * IFNULL(cp.pts, 0)),0)
+	 CASE           WHEN @v_col1 = 'mrp' THEN ROUND((SUM(IFNULL(SECONDARY_SALES, 0) * IFNULL(cp.mrp, 0)))/100000 , 2) 
+					WHEN @v_col1 = 'ptr' THEN ROUND((SUM(IFNULL(SECONDARY_SALES, 0) * IFNULL(cp.ptr, 0)))/100000 , 2)   
+					WHEN @v_col1 = 'pts' THEN ROUND((SUM(IFNULL(SECONDARY_SALES, 0) * IFNULL(cp.pts, 0)))/100000 , 2) 
+	END AS sale
+	 from
+	 ZSecondarySales1 sns,CompanyProducts cp
+	 where sns.CompanyProduct_ID = cp.id  and sns.CompanyID = 327
+	 and year(tran_Date) = _Year --  and month(tran_Date) = _MonthData1
+	 and sns.Zcode is not null
+	 group by m order by  m asc) saleData  on saleData.m = month.id
+	 order by month.id asc ;
+	 
+	 
+	 
+	 
+	drop temporary table if exists monthwiseBrandSale;
+	create temporary table monthwiseBrandSale
+	 select month.* , ifnull(saleData.sale,0) as sale from month left join(
+	select  month(tran_Date) as m , sns.Brand_ID , 
+	 CASE           WHEN @v_col1 = 'mrp' THEN ROUND((SUM(IFNULL(SECONDARY_SALES, 0) * IFNULL(cp.mrp, 0)))/100000 , 2) 
+					WHEN @v_col1 = 'ptr' THEN ROUND((SUM(IFNULL(SECONDARY_SALES, 0) * IFNULL(cp.ptr, 0)))/100000 , 2) 
+					WHEN @v_col1 = 'pts' THEN ROUND((SUM(IFNULL(SECONDARY_SALES, 0) * IFNULL(cp.pts, 0)))/100000 , 2) 
+	END AS sale
+	 from
+	 ZSecondarySales1 sns,CompanyProducts cp
+	 where sns.CompanyProduct_ID = cp.id  and sns.CompanyID = 327
+	 and year(tran_Date) = _Year and sns.Brand_ID = _brandID
+	 and sns.Zcode is not null
+	 group by m , sns.Brand_ID order by  m asc) saleData  on saleData.m = month.id
+	 order by month.id asc ;
+	 
+	drop temporary table if exists a;
+	create temporary table a
+	select group_concat(monthwiseSale.sale order by monthwiseSale.id asc) as sale from monthwiseSale;
+
+	drop temporary table if exists b;
+	create temporary table b
+	select group_concat(monthwiseBrandSale.sale order by monthwiseBrandSale.id asc) as brandsale , _brandID as Brand_ID  from  monthwiseBrandSale ;
+		
+	select * from a,b;
+
+else 
+
+
+	drop temporary table if exists monthwiseSale;
+	create temporary table monthwiseSale
+	select month.* , ifnull(saleData.sale,0) as sale from month left join(
+	select  month(tran_Date) as m ,  sns.Brand_ID ,
+	 CASE           WHEN @v_col1 = 'mrp' THEN ROUND((SUM(IFNULL(SECONDARY_SALES, 0) * IFNULL(cp.mrp, 0)))/100000 , 2) 
+					WHEN @v_col1 = 'ptr' THEN ROUND((SUM(IFNULL(SECONDARY_SALES, 0) * IFNULL(cp.ptr, 0)))/100000 , 2)   
+					WHEN @v_col1 = 'pts' THEN ROUND((SUM(IFNULL(SECONDARY_SALES, 0) * IFNULL(cp.pts, 0)))/100000 , 2)   
+	END AS sale
+	 from
+	 ZSecondarySales1 sns,CompanyProducts cp
+	 where sns.CompanyProduct_ID = cp.id  and sns.CompanyID = 327
+	 and year(tran_Date) = _Year --  and month(tran_Date) = _MonthData1
+	 and sns.Zcode is not null
+	 group by m order by  m asc) saleData  on saleData.m = month.id
+	 order by month.id asc ;
+	 
+	 
+	 
+	 
+	drop temporary table if exists monthwiseBrandSale;
+	create temporary table monthwiseBrandSale
+	select month.id , max(finalData.sale) as sale , max(finalData.Brand_ID) as Brand_ID from month left join ( 
+	 select month.* , ifnull(saleData.sale,0) as sale , ifnull(saleData.Brand_ID,0) as Brand_ID  from month left join(
+	select  month(tran_Date) as m , sns.Brand_ID , 
+	 CASE           WHEN @v_col1 = 'mrp' THEN ROUND((SUM(IFNULL(SECONDARY_SALES, 0) * IFNULL(cp.mrp, 0)))/100000 , 2)  
+					WHEN @v_col1 = 'ptr' THEN ROUND((SUM(IFNULL(SECONDARY_SALES, 0) * IFNULL(cp.ptr, 0)))/100000 , 2)  
+					WHEN @v_col1 = 'pts' THEN ROUND((SUM(IFNULL(SECONDARY_SALES, 0) * IFNULL(cp.pts, 0)))/100000 , 2)  
+	END AS sale
+	 from
+	 ZSecondarySales1 sns,CompanyProducts cp
+	 where sns.CompanyProduct_ID = cp.id  and sns.CompanyID = 327
+	 and year(tran_Date) = _Year 
+	 and sns.Zcode is not null
+	 group by m , sns.Brand_ID order by  sale desc) saleData  on saleData.m = month.id
+	order by month.id asc , sale desc ) finalData on finalData.id = month.id 
+	group by month.id ;
+	 
+	 
+
+	select distinct sns.Brand_ID ,CASE 
+					WHEN @v_col1 = 'mrp' THEN ROUND((SUM(IFNULL(SECONDARY_SALES, 0) * IFNULL(cp.mrp, 0)))/100000 , 2) 
+					WHEN @v_col1 = 'ptr' THEN ROUND((SUM(IFNULL(SECONDARY_SALES, 0) * IFNULL(cp.ptr, 0)))/100000 , 2) 
+					WHEN @v_col1 = 'pts' THEN ROUND((SUM(IFNULL(SECONDARY_SALES, 0) * IFNULL(cp.pts, 0)))/100000 , 2)  
+	END AS sale into @maxBrandID , @sale from
+	 ZSecondarySales1 sns,CompanyProducts cp
+	 where sns.CompanyProduct_ID = cp.id  and sns.CompanyID = 327
+	 and year(tran_Date) = _Year 
+	 and sns.Zcode is not null
+	 group by  sns.Brand_ID order by sale desc limit 1;
+	 
+	 
+	drop temporary table if exists a;
+	create temporary table a
+	select group_concat(monthwiseSale.sale order by monthwiseSale.id asc) as sale from monthwiseSale;
+
+	drop temporary table if exists b;
+	create temporary table b
+	select group_concat(monthwiseBrandSale.sale order by monthwiseBrandSale.id asc) as brandsale , @maxBrandID as Brand_ID  from  monthwiseBrandSale ;
+
+		
+	select * from a,b;
+	 
+ 
+end if;
+
+drop temporary Table IF EXISTS T1;
+drop temporary Table IF EXISTS T2;
+drop temporary Table IF EXISTS T3;
+drop temporary Table IF EXISTS T4;
+drop temporary Table IF EXISTS T5;
+drop temporary Table IF EXISTS T6;
+
+drop temporary table IF EXISTS ZSecondarySales1;
+
+END
